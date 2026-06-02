@@ -2,6 +2,9 @@
 const SPREADSHEET_ID = '1ZjGBG0oVZXiMcRHBDe2eRVkvMDHnsCX3ZVHhQGY0dGw';
 const SHEET_NAME = 'Family Registration';
 const DEBUG_SHEET_NAME = 'Debug';
+const STRIPE_SECRET_PROP = 'STRIPE_SECRET_KEY';
+const PUBLISHED_SITE_URL = 'https://trudan12345.github.io/kids-camp-2026-registration/';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwLAtysOX9sqlWLeb9HAIgEnXeyHhUz8FQrfhYOYNQdPEZM3vHvicg0z4fk8n3QH-HSSg/exec';
 
 const HEADERS = [
   'Submitted At',
@@ -12,15 +15,138 @@ const HEADERS = [
   'Number of Kids',
   'Kids First Names',
   'Total Due',
-  'Status',
+  'Registration Status',
+  'Paid',
+  'Payment Status',
+  'Stripe Checkout Session ID',
+  'Stripe Payment Intent ID',
+  'Paid At',
   'Source Timestamp'
 ];
 
-function doGet() {
+function doGet(e) {
+  const action = asString(e && e.parameter && e.parameter.action);
+
+  if (action === 'checkout') {
+    return handleCheckoutRequest(e);
+  }
+
+  if (action === 'verifyPayment') {
+    return handlePaymentVerification(e);
+  }
+
   return jsonResponse({ status: 'ok', message: 'Kids Camp registration endpoint is live.' });
 }
 
 function doPost(e) {
+  // Kept for compatibility with old clients. New clients use doGet?action=checkout
+  // because Apps Script web apps do not provide reliable CORS for readable fetch responses.
+  const action = asString(e && e.parameter && e.parameter.action);
+  if (action === 'checkout') {
+    return handleCheckoutRequest(e);
+  }
+
+  return handleRegistrationWriteOnly(e);
+}
+
+function handleCheckoutRequest(e) {
+  let ss;
+  let debugSheet;
+  let rowNumber;
+
+  try {
+    ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    debugSheet = getOrCreateSheet(ss, DEBUG_SHEET_NAME);
+    const sheet = getOrCreateSheet(ss, SHEET_NAME);
+    ensureHeaderRow(sheet);
+
+    const data = parseCheckoutData(e, debugSheet);
+    const row = buildRegistrationRow(data);
+    sheet.appendRow(row);
+    rowNumber = sheet.getLastRow();
+
+    const session = createStripeCheckoutSession(data, row, rowNumber);
+    sheet.getRange(rowNumber, 12, 1, 2).setValues([[session.id, '']]);
+
+    debugSheet.appendRow([
+      new Date(),
+      'CHECKOUT SESSION CREATED',
+      row[1],
+      JSON.stringify({ rowNumber, sessionId: session.id, totalDue: row[7] })
+    ]);
+
+    return redirectHtml(session.url, 'Opening secure Stripe checkout...');
+  } catch (err) {
+    try {
+      if (!ss) ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+      debugSheet = debugSheet || getOrCreateSheet(ss, DEBUG_SHEET_NAME);
+      debugSheet.appendRow([new Date(), 'CHECKOUT ERROR', rowNumber || '', String(err)]);
+    } catch (_) { }
+
+    return redirectHtml(`${PUBLISHED_SITE_URL}?payment=error&message=${encodeURIComponent(String(err))}`, 'Returning to registration...');
+  }
+}
+
+function handlePaymentVerification(e) {
+  let ss;
+  let debugSheet;
+  const sessionId = asString(e && e.parameter && e.parameter.session_id);
+
+  try {
+    if (!sessionId) throw new Error('Missing Stripe Checkout Session ID.');
+
+    ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    debugSheet = getOrCreateSheet(ss, DEBUG_SHEET_NAME);
+    const sheet = getOrCreateSheet(ss, SHEET_NAME);
+    ensureHeaderRow(sheet);
+
+    const session = retrieveStripeCheckoutSession(sessionId);
+    const rowNumber = findRowBySessionId(sheet, sessionId);
+    if (!rowNumber) throw new Error(`No registration row found for session ${sessionId}.`);
+
+    const isPaid = session.payment_status === 'paid' || session.status === 'complete';
+    if (isPaid) {
+      sheet.getRange(rowNumber, 9, 1, 6).setValues([[
+        'Registered - paid',
+        '✅',
+        session.payment_status || 'paid',
+        session.id,
+        session.payment_intent || '',
+        new Date()
+      ]]);
+    } else {
+      sheet.getRange(rowNumber, 9, 1, 5).setValues([[
+        'Registered - payment pending',
+        '',
+        session.payment_status || session.status || 'pending',
+        session.id,
+        session.payment_intent || ''
+      ]]);
+    }
+
+    debugSheet.appendRow([
+      new Date(),
+      'PAYMENT VERIFIED',
+      sessionId,
+      JSON.stringify({ rowNumber, status: session.status, paymentStatus: session.payment_status })
+    ]);
+
+    const target = isPaid
+      ? `${PUBLISHED_SITE_URL}?payment=success&session_id=${encodeURIComponent(sessionId)}`
+      : `${PUBLISHED_SITE_URL}?payment=pending&session_id=${encodeURIComponent(sessionId)}`;
+    return redirectHtml(target, 'Payment verified. Returning to registration...');
+  } catch (err) {
+    try {
+      if (!ss) ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+      debugSheet = debugSheet || getOrCreateSheet(ss, DEBUG_SHEET_NAME);
+      debugSheet.appendRow([new Date(), 'PAYMENT VERIFY ERROR', sessionId, String(err)]);
+    } catch (_) { }
+
+    return redirectHtml(`${PUBLISHED_SITE_URL}?payment=error&message=${encodeURIComponent(String(err))}`, 'Returning to registration...');
+  }
+}
+
+function handleRegistrationWriteOnly(e) {
   let ss;
   let debugSheet;
 
@@ -38,20 +164,10 @@ function doPost(e) {
       new Date(),
       'REGISTRATION WRITE SUCCESS',
       row[1],
-      JSON.stringify({
-        kids: row[5],
-        names: row[6],
-        totalDue: row[7]
-      })
+      JSON.stringify({ kids: row[5], names: row[6], totalDue: row[7] })
     ]);
 
-    return jsonResponse({
-      status: 'ok',
-      message: 'Registration saved.',
-      family: row[1],
-      kids: row[5],
-      totalDue: row[7]
-    });
+    return jsonResponse({ status: 'ok', message: 'Registration saved.', family: row[1], kids: row[5], totalDue: row[7] });
   } catch (err) {
     try {
       if (!ss) ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -92,9 +208,126 @@ function buildRegistrationRow(data) {
     kids,
     kidNames.join(', '),
     totalDue,
-    'Registered',
+    'Registered - payment pending',
+    '',
+    'unpaid',
+    '',
+    '',
+    '',
     sourceTimestamp
   ];
+}
+
+function createStripeCheckoutSession(data, row, rowNumber) {
+  const secretKey = PropertiesService.getScriptProperties().getProperty(STRIPE_SECRET_PROP);
+  if (!secretKey) throw new Error('Stripe sandbox secret key is not configured in Apps Script properties.');
+
+  const amount = Math.round(Number(row[7]) * 100);
+  if (!amount || amount < 50) throw new Error('Payment amount is invalid.');
+
+  const family = row[1];
+  const description = `${row[5]} kid${Number(row[5]) === 1 ? '' : 's'}: ${row[6]}`;
+  const successUrl = `${WEB_APP_URL}?action=verifyPayment&session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `${PUBLISHED_SITE_URL}?payment=cancelled`;
+
+  const payload = {
+    mode: 'payment',
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    client_reference_id: String(rowNumber),
+    'line_items[0][quantity]': '1',
+    'line_items[0][price_data][currency]': 'usd',
+    'line_items[0][price_data][unit_amount]': String(amount),
+    'line_items[0][price_data][product_data][name]': 'Kids Camp 2026 Registration',
+    'line_items[0][price_data][product_data][description]': description,
+    'metadata[registration_row]': String(rowNumber),
+    'metadata[family]': family,
+    'metadata[primary_first_name]': row[2],
+    'metadata[primary_last_name]': row[3],
+    'metadata[phone]': row[4],
+    'metadata[kids]': String(row[5]),
+    'metadata[kid_names]': row[6]
+  };
+
+  const response = UrlFetchApp.fetch('https://api.stripe.com/v1/checkout/sessions', {
+    method: 'post',
+    payload,
+    headers: { Authorization: `Bearer ${secretKey}` },
+    muteHttpExceptions: true
+  });
+
+  const status = response.getResponseCode();
+  const body = response.getContentText();
+  const session = JSON.parse(body);
+
+  if (status < 200 || status >= 300) {
+    throw new Error(`Stripe Checkout failed: ${session.error && session.error.message ? session.error.message : body}`);
+  }
+  if (!session.url) throw new Error('Stripe did not return a Checkout URL.');
+
+  return session;
+}
+
+function retrieveStripeCheckoutSession(sessionId) {
+  const secretKey = PropertiesService.getScriptProperties().getProperty(STRIPE_SECRET_PROP);
+  if (!secretKey) throw new Error('Stripe sandbox secret key is not configured in Apps Script properties.');
+
+  const response = UrlFetchApp.fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, {
+    method: 'get',
+    headers: { Authorization: `Bearer ${secretKey}` },
+    muteHttpExceptions: true
+  });
+
+  const status = response.getResponseCode();
+  const body = response.getContentText();
+  const session = JSON.parse(body);
+
+  if (status < 200 || status >= 300) {
+    throw new Error(`Stripe session lookup failed: ${session.error && session.error.message ? session.error.message : body}`);
+  }
+
+  return session;
+}
+
+function findRowBySessionId(sheet, sessionId) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+
+  const values = sheet.getRange(2, 12, lastRow - 1, 1).getValues();
+  for (let i = 0; i < values.length; i += 1) {
+    if (asString(values[i][0]) === sessionId) {
+      return i + 2;
+    }
+  }
+  return null;
+}
+
+function parseCheckoutData(e, debugSheet) {
+  const body = e && e.postData && typeof e.postData.contents === 'string'
+    ? e.postData.contents.trim()
+    : '';
+  const params = body ? parseFormBody(body) : ((e && e.parameter) || {});
+  const encoded = asString(params.data);
+  if (!encoded) throw new Error('Missing registration data.');
+
+  try {
+    const data = JSON.parse(encoded);
+    debugSheet.appendRow([new Date(), 'PARSE MODE', 'CHECKOUT GET JSON']);
+    return data;
+  } catch (err) {
+    debugSheet.appendRow([new Date(), 'CHECKOUT JSON PARSE FAILED', String(err)]);
+    throw new Error('Registration data could not be read.');
+  }
+}
+
+function parseFormBody(body) {
+  return body.split('&').reduce((params, part) => {
+    const [rawKey, rawValue = ''] = part.split('=');
+    if (!rawKey) return params;
+    const key = decodeURIComponent(rawKey.replace(/\+/g, ' '));
+    params[key] = decodeURIComponent(rawValue.replace(/\+/g, ' '));
+    return params;
+  }, {});
 }
 
 function parseRequestData(e, debugSheet) {
@@ -155,6 +388,23 @@ function asString(value) {
 function jsonResponse(payload) {
   return ContentService.createTextOutput(JSON.stringify(payload))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function redirectHtml(url, message) {
+  const safeUrl = String(url).replace(/"/g, '%22');
+  const safeMessage = String(message || 'Redirecting...')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+  return HtmlService.createHtmlOutput(`<!doctype html>
+<html><head><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="refresh" content="0;url=${safeUrl}"><title>Kids Camp Payment</title></head>
+<body style="font-family:system-ui,sans-serif;padding:24px;color:#123a6f;background:#f7fdfe;">
+  <p>${safeMessage}</p>
+  <p><a href="${safeUrl}">Continue</a></p>
+  <script>window.top.location.replace(${JSON.stringify(safeUrl)});</script>
+</body></html>`);
 }
 
 function testRegistrationWrite() {

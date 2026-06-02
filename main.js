@@ -52,17 +52,17 @@ const TRANSLATIONS = {
     adultLabel: "Adult",
     childLabel: "Child",
     toddlerLabel: "Toddler",
-    submittingMessage: "Submitting...",
+    submittingMessage: "Opening secure payment...",
     genericError: "Unknown error",
     tryAgainMessage: "Please try again.",
     paymentLoadError: "Failed to load payment form. Please refresh and try again.",
     paymentFailed: "Payment could not be completed.",
     serverResponseError: "Unable to read server response.",
     finalSuccessTitle: "You're all set!",
-    finalSuccessBody: "Your registration was received.",
+    finalSuccessBody: "Your registration and payment were received.",
     kidsCampTitle: "Kids Camp 2026",
     kidsCampSubtitle: "June 26-27",
-    submitButtonText: "Register Now",
+    submitButtonText: "Register & Pay",
   },
   es: {
     countdownHeading: "El Año Nuevo comienza en",
@@ -116,17 +116,17 @@ const TRANSLATIONS = {
     adultLabel: "Adulto",
     childLabel: "Niño",
     toddlerLabel: "Pequeño",
-    submittingMessage: "Enviando...",
+    submittingMessage: "Abriendo pago seguro...",
     genericError: "Error desconocido",
     tryAgainMessage: "Inténtalo de nuevo.",
     paymentLoadError: "No se pudo cargar el formulario de pago. Actualiza e inténtalo de nuevo.",
     paymentFailed: "No se pudo completar el pago.",
     serverResponseError: "No se pudo leer la respuesta del servidor.",
     finalSuccessTitle: "Todo listo",
-    finalSuccessBody: "Recibimos tu registro.",
+    finalSuccessBody: "Recibimos tu registro y pago.",
     kidsCampTitle: "Campamento de Niños 2026",
     kidsCampSubtitle: "26-27 de Junio",
-    submitButtonText: "Registrarse ahora",
+    submitButtonText: "Registrarse y pagar",
   },
   ru: {
     countdownHeading: "До Нового года осталось",
@@ -180,17 +180,17 @@ const TRANSLATIONS = {
     adultLabel: "Взрослый",
     childLabel: "Ребенок",
     toddlerLabel: "Малыш",
-    submittingMessage: "Отправка...",
+    submittingMessage: "Открываем безопасную оплату...",
     genericError: "Неизвестная ошибка",
     tryAgainMessage: "Пожалуйста, попробуйте еще раз.",
     paymentLoadError: "Не удалось загрузить форму оплаты. Обновите страницу и попробуйте снова.",
     paymentFailed: "Не удалось завершить оплату.",
     serverResponseError: "Не удалось прочитать ответ сервера.",
     finalSuccessTitle: "Все готово!",
-    finalSuccessBody: "Ваша регистрация получена.",
+    finalSuccessBody: "Ваша регистрация и оплата получены.",
     kidsCampTitle: "Детский лагерь 2026",
     kidsCampSubtitle: "26-27 Июня",
-    submitButtonText: "Зарегистрироваться",
+    submitButtonText: "Зарегистрироваться и оплатить",
   },
   uk: {
     countdownHeading: "До Нового року залишилося",
@@ -244,17 +244,17 @@ const TRANSLATIONS = {
     adultLabel: "Дорослий",
     childLabel: "Дитина",
     toddlerLabel: "Малюк",
-    submittingMessage: "Надсилання...",
+    submittingMessage: "Відкриваємо безпечну оплату...",
     genericError: "Невідома помилка",
     tryAgainMessage: "Будь ласка, спробуйте ще раз.",
     paymentLoadError: "Не вдалося завантажити форму оплати. Оновіть сторінку й спробуйте знову.",
     paymentFailed: "Не вдалося завершити оплату.",
     serverResponseError: "Не вдалося прочитати відповідь сервера.",
     finalSuccessTitle: "Усе готово!",
-    finalSuccessBody: "Вашу реєстрацію отримано.",
+    finalSuccessBody: "Вашу реєстрацію та оплату отримано.",
     kidsCampTitle: "Дитячий табір 2026",
     kidsCampSubtitle: "26-27 Червня",
-    submitButtonText: "Зареєструватися",
+    submitButtonText: "Зареєструватися й сплатити",
   },
 };
 
@@ -339,6 +339,64 @@ const mainScriptTag = document.querySelector('script[src*="main.js"]');
 const scriptURL = mainScriptTag?.getAttribute("data-script-url") ||
   "https://script.google.com/macros/s/AKfycbwLAtysOX9sqlWLeb9HAIgEnXeyHhUz8FQrfhYOYNQdPEZM3vHvicg0z4fk8n3QH-HSSg/exec";
 
+const showPaymentReturnState = () => {
+  const params = new URLSearchParams(window.location.search);
+  const payment = params.get("payment");
+  if (!payment) return;
+
+  if (payment === "success") {
+    form.style.display = "none";
+    if (finalSuccess) {
+      finalSuccess.style.display = "block";
+    }
+    const successFooter = document.getElementById("successFooter");
+    if (successFooter) successFooter.style.display = "block";
+    return;
+  }
+
+  if (payment === "cancelled") {
+    statusEl.textContent = "Payment was cancelled. Please submit again when you are ready.";
+    statusEl.className = "status-message error";
+    statusEl.style.display = "block";
+    return;
+  }
+
+  if (payment === "pending") {
+    statusEl.textContent = "Payment is still pending. Please check again in a moment.";
+    statusEl.className = "status-message";
+    statusEl.style.display = "block";
+    return;
+  }
+
+  if (payment === "error") {
+    const message = params.get("message") || "Payment could not be completed.";
+    statusEl.textContent = `Error: ${message}`;
+    statusEl.className = "status-message error";
+    statusEl.style.display = "block";
+  }
+};
+
+const submitToCheckout = (payload) => {
+  const postForm = document.createElement("form");
+  postForm.method = "POST";
+  postForm.action = scriptURL;
+  postForm.style.display = "none";
+
+  [
+    ["action", "checkout"],
+    ["data", JSON.stringify(payload)],
+  ].forEach(([name, value]) => {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = value;
+    postForm.appendChild(input);
+  });
+
+  document.body.appendChild(postForm);
+  postForm.submit();
+};
+
 const buildNameInputs = () => {
   const kidCount = Number(kidInput.value) || 0;
 
@@ -403,34 +461,7 @@ form.addEventListener("submit", async (event) => {
   statusEl.style.display = "block";
 
   try {
-    // Use no-cors to avoid preflight CORS errors when calling Apps Script web apps.
-    // Apps Script will still receive the request and write to the sheet even though
-    // the browser returns an opaque response.
-    await fetch(scriptURL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    // Assume the write succeeded (response is opaque in no-cors)
-    form.reset();
-    buildNameInputs();
-
-    statusEl.textContent = "";
-    statusEl.className = "status-message";
-    statusEl.style.display = "none";
-
-    form.style.display = "none";
-    if (finalSuccess) {
-      finalSuccess.style.display = "block";
-      finalSuccess.scrollIntoView({ behavior: "smooth" });
-    }
-
-    const successFooter = document.getElementById("successFooter");
-    if (successFooter) successFooter.style.display = "block";
+    submitToCheckout(payload);
   } catch (err) {
     console.error(err);
     statusEl.textContent = `Error: ${err.message || getString("genericError") || "Unknown error"}. ${getString("tryAgainMessage") || "Please try again."}`;
@@ -445,3 +476,4 @@ form.addEventListener("submit", async (event) => {
 
 applyTranslations();
 buildNameInputs();
+showPaymentReturnState();
