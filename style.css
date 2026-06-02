@@ -71,6 +71,46 @@ a {
   flex-direction: column;
 }
 
+@media (max-width: 759px) {
+  html {
+    background: #f7fdfe;
+  }
+
+  body {
+    background:
+      linear-gradient(180deg, rgba(229, 249, 252, 0.5) 0, rgba(255, 255, 255, 0.88) 280px, #f7fdfe 58%),
+      url("images/Ocean_background.png") center top / cover no-repeat,
+      #f7fdfe;
+    background-attachment: scroll;
+  }
+
+  body::before {
+    opacity: 0.36;
+    background:
+      linear-gradient(180deg, rgba(240, 252, 254, 0.54), rgba(255, 255, 255, 0.72) 40%, #f7fdfe 100%);
+  }
+
+  .page-shell {
+    min-height: 100vh;
+    min-height: 100svh;
+    padding-top: max(0.55rem, env(safe-area-inset-top));
+    padding-bottom: max(5.25rem, calc(env(safe-area-inset-bottom) + 4.75rem));
+    background: #f7fdfe;
+  }
+
+  .brand-header {
+    margin-bottom: 0.55rem;
+  }
+
+  form {
+    border-bottom-color: transparent;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    box-shadow: 0 10px 24px rgba(21, 46, 68, 0.08);
+    margin-bottom: 0;
+  }
+}
+
 .brand-header {
   position: relative;
   display: grid;
@@ -634,6 +674,15 @@ button:disabled {
 
 .tab-content.active {
   display: block;
+}
+
+@media (max-width: 759px) {
+  form {
+    border-bottom-color: transparent;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    box-shadow: 0 10px 24px rgba(21, 46, 68, 0.08);
+  }
 }
 
 @media (min-width: 760px) {
