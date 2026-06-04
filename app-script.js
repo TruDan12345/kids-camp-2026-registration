@@ -425,3 +425,14 @@ function testRegistrationWrite() {
 
   Logger.log(doPost(fakeEvent).getContent());
 }
+
+function authorizeStripeAccess() {
+  const secretKey = PropertiesService.getScriptProperties().getProperty(STRIPE_SECRET_PROP);
+  Logger.log(secretKey ? 'Stripe key is configured.' : 'Stripe key is missing.');
+  const response = UrlFetchApp.fetch('https://api.stripe.com/v1/checkout/sessions?limit=1', {
+    method: 'get',
+    headers: { Authorization: `Bearer ${secretKey || ''}` },
+    muteHttpExceptions: true
+  });
+  Logger.log(response.getResponseCode());
+}
