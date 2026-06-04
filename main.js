@@ -42,11 +42,17 @@ const TRANSLATIONS = {
     successMessage: "Form successfully submitted.",
     successTotalLabel: "Your total is",
     cardPaymentEyebrow: "Secure card payment",
+    cardPaymentTitle: "Pay by card",
     cardPaymentDueLabel: "Amount due",
+    cardNumberLabel: "Card number",
+    expirationLabel: "Expiration date",
+    securityCodeLabel: "Security code",
+    countryLabel: "Country",
+    zipCodeLabel: "ZIP code",
     feeLabel: "fees",
     payButtonLabel: "Pay now",
     payButtonProcessing: "Processing...",
-    paymentUnavailable: "Card payments are unavailable right now. Please use another option.",
+    paymentUnavailable: "Card payment setup is almost ready. You can still use the cash option below.",
     paymentSuccess: "Payment received! You're all set.",
     cashPaymentNote: "<strong>Cash Option:</strong> You can bring cash directly to Daniel Trushkov.",
     adultLabel: "Adult",
@@ -106,11 +112,17 @@ const TRANSLATIONS = {
     successMessage: "Formulario enviado con éxito.",
     successTotalLabel: "Tu total es",
     cardPaymentEyebrow: "Pago con tarjeta seguro",
+    cardPaymentTitle: "Pagar con tarjeta",
     cardPaymentDueLabel: "Monto a pagar",
+    cardNumberLabel: "Número de tarjeta",
+    expirationLabel: "Fecha de expiración",
+    securityCodeLabel: "Código de seguridad",
+    countryLabel: "País",
+    zipCodeLabel: "Código postal",
     feeLabel: "comisiones",
     payButtonLabel: "Pagar ahora",
     payButtonProcessing: "Procesando...",
-    paymentUnavailable: "Los pagos con tarjeta no están disponibles. Usa otra opción.",
+    paymentUnavailable: "La opción de tarjeta está casi lista. También puedes usar efectivo abajo.",
     paymentSuccess: "¡Pago recibido! Todo listo.",
     cashPaymentNote: "<strong>Opción en efectivo:</strong> Puedes entregar el efectivo directamente a Daniel Trushkov.",
     adultLabel: "Adulto",
@@ -170,11 +182,17 @@ const TRANSLATIONS = {
     successMessage: "Форма успешно отправлена.",
     successTotalLabel: "Ваш итог",
     cardPaymentEyebrow: "Безопасная оплата картой",
+    cardPaymentTitle: "Оплатить картой",
     cardPaymentDueLabel: "Сумма к оплате",
+    cardNumberLabel: "Номер карты",
+    expirationLabel: "Срок действия",
+    securityCodeLabel: "Код безопасности",
+    countryLabel: "Страна",
+    zipCodeLabel: "Почтовый индекс",
     feeLabel: "комиссия",
     payButtonLabel: "Оплатить",
     payButtonProcessing: "Обработка...",
-    paymentUnavailable: "Оплата картой сейчас недоступна. Выберите другой способ.",
+    paymentUnavailable: "Оплата картой почти готова. Также можно оплатить наличными ниже.",
     paymentSuccess: "Платеж получен! Все готово.",
     cashPaymentNote: "<strong>Наличные:</strong> Вы можете передать наличные лично Даниилу Трушкову.",
     adultLabel: "Взрослый",
@@ -234,11 +252,17 @@ const TRANSLATIONS = {
     successMessage: "Форму успішно надіслано.",
     successTotalLabel: "Ваш підсумок",
     cardPaymentEyebrow: "Безпечна оплата карткою",
+    cardPaymentTitle: "Оплатити карткою",
     cardPaymentDueLabel: "Сума до оплати",
+    cardNumberLabel: "Номер картки",
+    expirationLabel: "Термін дії",
+    securityCodeLabel: "Код безпеки",
+    countryLabel: "Країна",
+    zipCodeLabel: "Поштовий індекс",
     feeLabel: "комісія",
     payButtonLabel: "Сплатити",
     payButtonProcessing: "Обробка...",
-    paymentUnavailable: "Оплата карткою зараз недоступна. Скористайтесь іншим способом.",
+    paymentUnavailable: "Оплата карткою майже готова. Також можна скористатися готівкою нижче.",
     paymentSuccess: "Платіж отримано! Все готово.",
     cashPaymentNote: "<strong>Готівка:</strong> Ви можете передати готівку особисто Даниїлу Трушкову.",
     adultLabel: "Дорослий",
@@ -303,6 +327,8 @@ const kidList = document.getElementById("kidList");
 const kidTable = document.getElementById("kidTable");
 const statusEl = document.getElementById("status");
 const finalSuccess = document.getElementById("finalSuccess");
+const paymentSection = document.getElementById("paymentSection");
+const paymentAmountDue = document.getElementById("paymentAmountDue");
 const primaryFirstNameEl = document.getElementById("primaryFirstName");
 const primaryLastNameEl = document.getElementById("primaryLastName");
 const phoneInput = document.getElementById("phone");
@@ -349,6 +375,7 @@ const showPaymentReturnState = () => {
     if (finalSuccess) {
       finalSuccess.style.display = "block";
     }
+    showRegisteredPaymentPanel(Number(kidInput.value || 1) * COSTS.kid);
     const successFooter = document.getElementById("successFooter");
     if (successFooter) successFooter.style.display = "block";
     return;
@@ -455,6 +482,15 @@ const submitToCheckout = (payload) => {
   postForm.submit();
 };
 
+const showRegisteredPaymentPanel = (subtotal) => {
+  if (paymentAmountDue) {
+    paymentAmountDue.textContent = `$${Number(subtotal || 0).toFixed(0)}`;
+  }
+  if (paymentSection) {
+    paymentSection.style.display = "block";
+  }
+};
+
 const buildNameInputs = () => {
   const kidCount = Number(kidInput.value) || 0;
 
@@ -525,6 +561,7 @@ form.addEventListener("submit", async (event) => {
     if (finalSuccess) {
       finalSuccess.style.display = "block";
     }
+    showRegisteredPaymentPanel(subtotal);
     const successFooter = document.getElementById("successFooter");
     if (successFooter) successFooter.style.display = "block";
   } catch (err) {
