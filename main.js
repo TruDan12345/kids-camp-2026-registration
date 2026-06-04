@@ -52,17 +52,17 @@ const TRANSLATIONS = {
     adultLabel: "Adult",
     childLabel: "Child",
     toddlerLabel: "Toddler",
-    submittingMessage: "Opening secure payment...",
+    submittingMessage: "Sending registration...",
     genericError: "Unknown error",
     tryAgainMessage: "Please try again.",
     paymentLoadError: "Failed to load payment form. Please refresh and try again.",
     paymentFailed: "Payment could not be completed.",
     serverResponseError: "Unable to read server response.",
-    finalSuccessTitle: "You're all set!",
-    finalSuccessBody: "Your registration and payment were received.",
+    finalSuccessTitle: "You're registered!",
+    finalSuccessBody: "Your registration was received. Payment will be confirmed separately.",
     kidsCampTitle: "Kids Camp 2026",
     kidsCampSubtitle: "June 26-27",
-    submitButtonText: "Register & Pay",
+    submitButtonText: "Register",
   },
   es: {
     countdownHeading: "El Año Nuevo comienza en",
@@ -116,17 +116,17 @@ const TRANSLATIONS = {
     adultLabel: "Adulto",
     childLabel: "Niño",
     toddlerLabel: "Pequeño",
-    submittingMessage: "Abriendo pago seguro...",
+    submittingMessage: "Enviando registro...",
     genericError: "Error desconocido",
     tryAgainMessage: "Inténtalo de nuevo.",
     paymentLoadError: "No se pudo cargar el formulario de pago. Actualiza e inténtalo de nuevo.",
     paymentFailed: "No se pudo completar el pago.",
     serverResponseError: "No se pudo leer la respuesta del servidor.",
-    finalSuccessTitle: "Todo listo",
-    finalSuccessBody: "Recibimos tu registro y pago.",
+    finalSuccessTitle: "Registro recibido",
+    finalSuccessBody: "Recibimos tu registro. El pago se confirmará por separado.",
     kidsCampTitle: "Campamento de Niños 2026",
     kidsCampSubtitle: "26-27 de Junio",
-    submitButtonText: "Registrarse y pagar",
+    submitButtonText: "Registrarse",
   },
   ru: {
     countdownHeading: "До Нового года осталось",
@@ -180,17 +180,17 @@ const TRANSLATIONS = {
     adultLabel: "Взрослый",
     childLabel: "Ребенок",
     toddlerLabel: "Малыш",
-    submittingMessage: "Открываем безопасную оплату...",
+    submittingMessage: "Отправляем регистрацию...",
     genericError: "Неизвестная ошибка",
     tryAgainMessage: "Пожалуйста, попробуйте еще раз.",
     paymentLoadError: "Не удалось загрузить форму оплаты. Обновите страницу и попробуйте снова.",
     paymentFailed: "Не удалось завершить оплату.",
     serverResponseError: "Не удалось прочитать ответ сервера.",
-    finalSuccessTitle: "Все готово!",
-    finalSuccessBody: "Ваша регистрация и оплата получены.",
+    finalSuccessTitle: "Регистрация получена!",
+    finalSuccessBody: "Ваша регистрация получена. Оплата будет подтверждена отдельно.",
     kidsCampTitle: "Детский лагерь 2026",
     kidsCampSubtitle: "26-27 Июня",
-    submitButtonText: "Зарегистрироваться и оплатить",
+    submitButtonText: "Зарегистрироваться",
   },
   uk: {
     countdownHeading: "До Нового року залишилося",
@@ -244,17 +244,17 @@ const TRANSLATIONS = {
     adultLabel: "Дорослий",
     childLabel: "Дитина",
     toddlerLabel: "Малюк",
-    submittingMessage: "Відкриваємо безпечну оплату...",
+    submittingMessage: "Надсилаємо реєстрацію...",
     genericError: "Невідома помилка",
     tryAgainMessage: "Будь ласка, спробуйте ще раз.",
     paymentLoadError: "Не вдалося завантажити форму оплати. Оновіть сторінку й спробуйте знову.",
     paymentFailed: "Не вдалося завершити оплату.",
     serverResponseError: "Не вдалося прочитати відповідь сервера.",
-    finalSuccessTitle: "Усе готово!",
-    finalSuccessBody: "Вашу реєстрацію та оплату отримано.",
+    finalSuccessTitle: "Реєстрацію отримано!",
+    finalSuccessBody: "Вашу реєстрацію отримано. Оплату буде підтверджено окремо.",
     kidsCampTitle: "Дитячий табір 2026",
     kidsCampSubtitle: "26-27 Червня",
-    submitButtonText: "Зареєструватися й сплатити",
+    submitButtonText: "Зареєструватися",
   },
 };
 
@@ -376,6 +376,64 @@ const showPaymentReturnState = () => {
   }
 };
 
+const submitRegistrationInBackground = (payload) =>
+  new Promise((resolve, reject) => {
+    const iframeName = `registration-target-${Date.now()}`;
+    const iframe = document.createElement("iframe");
+    iframe.name = iframeName;
+    iframe.title = "Registration submission";
+    iframe.style.display = "none";
+
+    const postForm = document.createElement("form");
+    postForm.method = "POST";
+    postForm.action = scriptURL;
+    postForm.target = iframeName;
+    postForm.style.display = "none";
+
+    const fields = {
+      primaryFirstName: payload.primaryFirstName,
+      primaryLastName: payload.primaryLastName,
+      phone: payload.phone,
+      kids: String(payload.kids),
+      kidNames: payload.kidNames.join(", "),
+      totalCost: payload.totalCost,
+      sheetCost: payload.sheetCost,
+      timestamp: payload.timestamp,
+    };
+
+    Object.entries(fields).forEach(([name, value]) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      input.value = value;
+      postForm.appendChild(input);
+    });
+
+    let timeoutId;
+    const cleanup = () => {
+      if (timeoutId) window.clearTimeout(timeoutId);
+      postForm.remove();
+      iframe.remove();
+    };
+
+    let submitted = false;
+    iframe.addEventListener("load", () => {
+      if (!submitted) return;
+      cleanup();
+      resolve();
+    });
+
+    timeoutId = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Registration took too long to submit."));
+    }, 12000);
+
+    document.body.appendChild(iframe);
+    document.body.appendChild(postForm);
+    submitted = true;
+    postForm.submit();
+  });
+
 const submitToCheckout = (payload) => {
   const postForm = document.createElement("form");
   postForm.method = "POST";
@@ -461,7 +519,14 @@ form.addEventListener("submit", async (event) => {
   statusEl.style.display = "block";
 
   try {
-    submitToCheckout(payload);
+    await submitRegistrationInBackground(payload);
+
+    form.style.display = "none";
+    if (finalSuccess) {
+      finalSuccess.style.display = "block";
+    }
+    const successFooter = document.getElementById("successFooter");
+    if (successFooter) successFooter.style.display = "block";
   } catch (err) {
     console.error(err);
     statusEl.textContent = `Error: ${err.message || getString("genericError") || "Unknown error"}. ${getString("tryAgainMessage") || "Please try again."}`;

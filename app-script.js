@@ -4,7 +4,7 @@ const SHEET_NAME = 'Family Registration';
 const DEBUG_SHEET_NAME = 'Debug';
 const STRIPE_SECRET_PROP = 'STRIPE_SECRET_KEY';
 const PUBLISHED_SITE_URL = 'https://trudan12345.github.io/kids-camp-2026-registration/';
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwLAtysOX9sqlWLeb9HAIgEnXeyHhUz8FQrfhYOYNQdPEZM3vHvicg0z4fk8n3QH-HSSg/exec';
+const WEB_APP_URL_FALLBACK = 'https://script.google.com/macros/s/AKfycbwLAtysOX9sqlWLeb9HAIgEnXeyHhUz8FQrfhYOYNQdPEZM3vHvicg0z4fk8n3QH-HSSg/exec';
 
 const HEADERS = [
   'Submitted At',
@@ -227,7 +227,7 @@ function createStripeCheckoutSession(data, row, rowNumber) {
 
   const family = row[1];
   const description = `${row[5]} kid${Number(row[5]) === 1 ? '' : 's'}: ${row[6]}`;
-  const successUrl = `${WEB_APP_URL}?action=verifyPayment&session_id={CHECKOUT_SESSION_ID}`;
+  const successUrl = `${getWebAppUrl()}?action=verifyPayment&session_id={CHECKOUT_SESSION_ID}`;
   const cancelUrl = `${PUBLISHED_SITE_URL}?payment=cancelled`;
 
   const payload = {
@@ -388,6 +388,10 @@ function asString(value) {
 function jsonResponse(payload) {
   return ContentService.createTextOutput(JSON.stringify(payload))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getWebAppUrl() {
+  return ScriptApp.getService().getUrl() || WEB_APP_URL_FALLBACK;
 }
 
 function redirectHtml(url, message) {
