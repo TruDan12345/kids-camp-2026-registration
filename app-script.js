@@ -53,6 +53,7 @@ function handleCheckoutRequest(e) {
   let ss;
   let debugSheet;
   let rowNumber;
+  const callback = asString(e && e.parameter && e.parameter.callback);
 
   try {
     ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -75,6 +76,10 @@ function handleCheckoutRequest(e) {
       JSON.stringify({ rowNumber, sessionId: session.id, totalDue: row[7] })
     ]);
 
+    if (callback) {
+      return javascriptResponse(callback, { status: 'ok', url: session.url, sessionId: session.id });
+    }
+
     return redirectHtml(session.url, 'Opening secure Stripe checkout...');
   } catch (err) {
     try {
@@ -82,6 +87,10 @@ function handleCheckoutRequest(e) {
       debugSheet = debugSheet || getOrCreateSheet(ss, DEBUG_SHEET_NAME);
       debugSheet.appendRow([new Date(), 'CHECKOUT ERROR', rowNumber || '', String(err)]);
     } catch (_) { }
+
+    if (callback) {
+      return javascriptResponse(callback, { status: 'error', message: String(err) });
+    }
 
     return redirectHtml(`${PUBLISHED_SITE_URL}?payment=error&message=${encodeURIComponent(String(err))}`, 'Returning to registration...');
   }
@@ -392,6 +401,16 @@ function asString(value) {
 function jsonResponse(payload) {
   return ContentService.createTextOutput(JSON.stringify(payload))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function javascriptResponse(callback, payload) {
+  if (!/^[A-Za-z_$][0-9A-Za-z_$]*(\.[A-Za-z_$][0-9A-Za-z_$]*)*$/.test(callback)) {
+    return ContentService.createTextOutput('/* Invalid callback */')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+
+  return ContentService.createTextOutput(`${callback}(${JSON.stringify(payload)});`)
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
 
 function getWebAppUrl() {

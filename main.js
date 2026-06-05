@@ -401,26 +401,44 @@ const showPaymentReturnState = () => {
   }
 };
 
-const submitToCheckout = (payload) => {
-  const postForm = document.createElement("form");
-  postForm.method = "POST";
-  postForm.action = scriptURL;
-  postForm.style.display = "none";
+const submitToCheckout = (payload) =>
+  new Promise((resolve, reject) => {
+    const callbackName = `kidsCampCheckout${Date.now()}${Math.floor(Math.random() * 100000)}`;
+    const checkoutScript = document.createElement("script");
+    const timeoutId = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Stripe checkout took too long to open."));
+    }, 20000);
 
-  [
-    ["action", "checkout"],
-    ["data", JSON.stringify(payload)],
-  ].forEach(([name, value]) => {
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = name;
-    input.value = value;
-    postForm.appendChild(input);
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      delete window[callbackName];
+      checkoutScript.remove();
+    };
+
+    window[callbackName] = (response) => {
+      cleanup();
+      if (!response || response.status !== "ok" || !response.url) {
+        reject(new Error(response?.message || "Stripe checkout could not be created."));
+        return;
+      }
+      resolve(response.url);
+      window.location.assign(response.url);
+    };
+
+    checkoutScript.onerror = () => {
+      cleanup();
+      reject(new Error("Could not contact the registration server."));
+    };
+
+    const params = new URLSearchParams({
+      action: "checkout",
+      callback: callbackName,
+      data: JSON.stringify(payload),
+    });
+    checkoutScript.src = `${scriptURL}?${params.toString()}`;
+    document.body.appendChild(checkoutScript);
   });
-
-  document.body.appendChild(postForm);
-  postForm.submit();
-};
 
 const verifyPaymentInBackground = (sessionId) => {
   if (!sessionId) return;
@@ -500,7 +518,7 @@ form.addEventListener("submit", async (event) => {
   statusEl.style.display = "block";
 
   try {
-    submitToCheckout(payload);
+    await submitToCheckout(payload);
   } catch (err) {
     console.error(err);
     statusEl.textContent = `Error: ${err.message || getString("genericError") || "Unknown error"}. ${getString("tryAgainMessage") || "Please try again."}`;
