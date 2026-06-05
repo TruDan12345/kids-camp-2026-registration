@@ -369,6 +369,7 @@ const showPaymentReturnState = () => {
   if (!payment) return;
 
   if (payment === "success") {
+    verifyPaymentInBackground(params.get("session_id"));
     form.style.display = "none";
     if (finalSuccess) {
       finalSuccess.style.display = "block";
@@ -419,6 +420,20 @@ const submitToCheckout = (payload) => {
 
   document.body.appendChild(postForm);
   postForm.submit();
+};
+
+const verifyPaymentInBackground = (sessionId) => {
+  if (!sessionId) return;
+
+  const iframe = document.createElement("iframe");
+  iframe.title = "Payment confirmation";
+  iframe.src = `${scriptURL}?action=verifyPayment&mode=silent&session_id=${encodeURIComponent(sessionId)}`;
+  iframe.style.display = "none";
+  document.body.appendChild(iframe);
+
+  window.setTimeout(() => {
+    iframe.remove();
+  }, 30000);
 };
 
 const buildNameInputs = () => {

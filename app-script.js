@@ -131,6 +131,10 @@ function handlePaymentVerification(e) {
       JSON.stringify({ rowNumber, status: session.status, paymentStatus: session.payment_status })
     ]);
 
+    if (asString(e && e.parameter && e.parameter.mode) === 'silent') {
+      return HtmlService.createHtmlOutput(`<!doctype html><html><body>Payment ${isPaid ? 'verified' : 'pending'}.</body></html>`);
+    }
+
     const target = isPaid
       ? `${PUBLISHED_SITE_URL}?payment=success&session_id=${encodeURIComponent(sessionId)}`
       : `${PUBLISHED_SITE_URL}?payment=pending&session_id=${encodeURIComponent(sessionId)}`;
@@ -227,7 +231,7 @@ function createStripeCheckoutSession(data, row, rowNumber) {
 
   const family = row[1];
   const description = `${row[5]} kid${Number(row[5]) === 1 ? '' : 's'}: ${row[6]}`;
-  const successUrl = `${getWebAppUrl()}?action=verifyPayment&session_id={CHECKOUT_SESSION_ID}`;
+  const successUrl = `${PUBLISHED_SITE_URL}?payment=success&session_id={CHECKOUT_SESSION_ID}`;
   const cancelUrl = `${PUBLISHED_SITE_URL}?payment=cancelled`;
 
   const payload = {
