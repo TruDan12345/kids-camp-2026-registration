@@ -32,7 +32,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preload" as="image" href="images/Logo_Ocean_transparent.png" type="image/png" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=2026060305" />
+  <link rel="stylesheet" href="style.css?v=2026060402" />
 </head>
 
 <body>
@@ -108,7 +108,7 @@
 
       <div class="submit-panel">
         <button type="submit" class="ocean-submit-btn">
-          <span class="btn-text" data-i18n="submitButtonText">Register</span>
+          <span class="btn-text" data-i18n="submitButtonText">Register & Pay</span>
           <span class="btn-icon">🌊</span>
         </button>
         <div id="submit-loader" class="spinner"></div>
@@ -119,54 +119,7 @@
     <section id="finalSuccess" class="final-success" style="display: none;">
       <div class="success-icon">✓</div>
       <h2 data-i18n="finalSuccessTitle">You're all set!</h2>
-      <p data-i18n="finalSuccessBody">Your registration was received. Payment will be confirmed separately.</p>
-      <div id="paymentSection" class="card-payment" aria-live="polite">
-        <div class="card-payment__header">
-          <div>
-            <p class="card-payment__eyebrow" data-i18n="cardPaymentEyebrow">Secure card payment</p>
-            <h3 class="card-payment__title" data-i18n="cardPaymentTitle">Pay by card</h3>
-          </div>
-          <div class="card-payment__pill">
-            <span data-i18n="cardPaymentDueLabel">Amount due</span>
-            <strong id="paymentAmountDue">$35</strong>
-          </div>
-        </div>
-        <div class="stripe-card-shell">
-          <div id="paymentElement" class="payment-element">
-            <div class="stripe-field">
-              <span class="stripe-label" data-i18n="cardNumberLabel">Card number</span>
-              <span class="stripe-input">•••• •••• •••• ••••</span>
-            </div>
-            <div class="stripe-field-grid">
-              <div class="stripe-field">
-                <span class="stripe-label" data-i18n="expirationLabel">Expiration date</span>
-                <span class="stripe-input">MM / YY</span>
-              </div>
-              <div class="stripe-field">
-                <span class="stripe-label" data-i18n="securityCodeLabel">Security code</span>
-                <span class="stripe-input">CVC</span>
-              </div>
-            </div>
-            <div class="stripe-field">
-              <span class="stripe-label" data-i18n="countryLabel">Country</span>
-              <span class="stripe-input">United States</span>
-            </div>
-            <div class="stripe-field">
-              <span class="stripe-label" data-i18n="zipCodeLabel">ZIP code</span>
-              <span class="stripe-input">12345</span>
-            </div>
-          </div>
-          <p id="paymentStatus" class="payment-setup-note" data-i18n="paymentUnavailable">
-            Card payments are unavailable right now. Please use another option.
-          </p>
-          <button type="button" id="payNowButton" class="pay-now-button" disabled>
-            <span data-i18n="payButtonLabel">Pay now</span>
-          </button>
-        </div>
-        <div class="cash-note">
-          <p data-i18n-html="cashPaymentNote"><strong>Cash Option:</strong> You can bring cash directly to Daniel Trushkov.</p>
-        </div>
-      </div>
+      <p data-i18n="finalSuccessBody">Your registration and payment were received.</p>
     </section>
   </div>
 
@@ -174,8 +127,8 @@
     <img src="images/Logo_Ocean_transparent.png" alt="Source of Life Church ocean cross logo" class="final-success-logo" loading="lazy" width="256" height="256" />
   </footer>
 
-  <script src="main.js?v=2026060305" defer
-    data-script-url="https://script.google.com/macros/s/AKfycbwLAtysOX9sqlWLeb9HAIgEnXeyHhUz8FQrfhYOYNQdPEZM3vHvicg0z4fk8n3QH-HSSg/exec"></script>
+  <script src="main.js?v=2026060402" defer
+    data-script-url="https://script.google.com/macros/s/AKfycbz6o-4Zo8QymsJ217SoD2dC9UtlssJqGQiO_SizNKk9BMySxH_kEByJ4uKlohzqpwLYow/exec"></script>
 </body>
 
 </html>

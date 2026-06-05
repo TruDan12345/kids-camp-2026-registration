@@ -4,7 +4,7 @@ const SHEET_NAME = 'Family Registration';
 const DEBUG_SHEET_NAME = 'Debug';
 const STRIPE_SECRET_PROP = 'STRIPE_SECRET_KEY';
 const PUBLISHED_SITE_URL = 'https://trudan12345.github.io/kids-camp-2026-registration/';
-const WEB_APP_URL_FALLBACK = 'https://script.google.com/macros/s/AKfycbwLAtysOX9sqlWLeb9HAIgEnXeyHhUz8FQrfhYOYNQdPEZM3vHvicg0z4fk8n3QH-HSSg/exec';
+const WEB_APP_URL_FALLBACK = 'https://script.google.com/macros/s/AKfycbz6o-4Zo8QymsJ217SoD2dC9UtlssJqGQiO_SizNKk9BMySxH_kEByJ4uKlohzqpwLYow/exec';
 
 const HEADERS = [
   'Submitted At',
