@@ -5,6 +5,8 @@ const DEBUG_SHEET_NAME = 'Debug';
 const STRIPE_SECRET_PROP = 'STRIPE_SECRET_KEY';
 const PUBLISHED_SITE_URL = 'https://trudan12345.github.io/kids-camp-2026-registration/';
 const WEB_APP_URL_FALLBACK = 'https://script.google.com/macros/s/AKfycbz6o-4Zo8QymsJ217SoD2dC9UtlssJqGQiO_SizNKk9BMySxH_kEByJ4uKlohzqpwLYow/exec';
+const STRIPE_CARD_FEE_RATE = 0.029;
+const STRIPE_CARD_FIXED_FEE_CENTS = 30;
 
 const HEADERS = [
   'Submitted At',
@@ -21,7 +23,9 @@ const HEADERS = [
   'Stripe Checkout Session ID',
   'Stripe Payment Intent ID',
   'Paid At',
-  'Source Timestamp'
+  'Source Timestamp',
+  'Card Charge Total',
+  'Stripe Processing Fee'
 ];
 
 function doGet(e) {
@@ -203,6 +207,7 @@ function buildRegistrationRow(data) {
   const kids = Math.max(1, Number(data.kids || data.kidCount || 1) || 1);
   const kidNames = normalizeNameList(data.kidNames);
   const totalDue = Number(data.sheetCost || data.totalCost || kids * 35) || 0;
+  const paymentSummary = calculateCardCharge(totalDue);
   const family = primaryLastName ? `${primaryLastName} family` : 'Family';
   const sourceTimestamp = asString(data.timestamp);
 
@@ -231,7 +236,9 @@ function buildRegistrationRow(data) {
     '',
     '',
     '',
-    sourceTimestamp
+    sourceTimestamp,
+    paymentSummary.cardChargeTotal.toFixed(2),
+    paymentSummary.processingFee.toFixed(2)
   ];
 }
 
@@ -239,8 +246,11 @@ function createStripeCheckoutSession(data, row, rowNumber) {
   const secretKey = PropertiesService.getScriptProperties().getProperty(STRIPE_SECRET_PROP);
   if (!secretKey) throw new Error('Stripe secret key is not configured in Apps Script properties.');
 
-  const amount = Math.round(Number(row[7]) * 100);
-  if (!amount || amount < 50) throw new Error('Payment amount is invalid.');
+  const campAmount = Math.round(Number(row[7]) * 100);
+  const paymentSummary = calculateCardCharge(Number(row[7]));
+  const processingFee = paymentSummary.processingFeeCents;
+  const amount = paymentSummary.cardChargeTotalCents;
+  if (!campAmount || campAmount < 50 || !amount || amount < campAmount) throw new Error('Payment amount is invalid.');
 
   const family = row[1];
   const description = `${row[5]} kid${Number(row[5]) === 1 ? '' : 's'}: ${row[6]}`;
@@ -252,16 +262,25 @@ function createStripeCheckoutSession(data, row, rowNumber) {
     client_reference_id: String(rowNumber),
     'line_items[0][quantity]': '1',
     'line_items[0][price_data][currency]': 'usd',
-    'line_items[0][price_data][unit_amount]': String(amount),
+    'line_items[0][price_data][unit_amount]': String(campAmount),
     'line_items[0][price_data][product_data][name]': 'Kids Camp 2026 Registration',
     'line_items[0][price_data][product_data][description]': description,
+    'line_items[1][quantity]': '1',
+    'line_items[1][price_data][currency]': 'usd',
+    'line_items[1][price_data][unit_amount]': String(processingFee),
+    'line_items[1][price_data][product_data][name]': 'Stripe card processing fee',
+    'line_items[1][price_data][product_data][description]': 'Added so the camp receives the full registration amount after Stripe processing fees.',
     'metadata[registration_row]': String(rowNumber),
     'metadata[family]': family,
     'metadata[primary_first_name]': row[2],
     'metadata[primary_last_name]': row[3],
     'metadata[phone]': row[4],
     'metadata[kids]': String(row[5]),
-    'metadata[kid_names]': row[6]
+    'metadata[kid_names]': row[6],
+    'metadata[camp_amount]': (campAmount / 100).toFixed(2),
+    'metadata[stripe_processing_fee]': (processingFee / 100).toFixed(2),
+    'metadata[card_charge_total]': paymentSummary.cardChargeTotal.toFixed(2),
+    'metadata[stripe_fee_rate]': '2.9% + $0.30'
   };
 
   const response = UrlFetchApp.fetch('https://api.stripe.com/v1/checkout/sessions', {
@@ -372,6 +391,35 @@ function normalizeNameList(value) {
   const text = asString(value);
   if (!text) return [];
   return text.split(',').map(asString).filter(Boolean);
+}
+
+function calculateCardCharge(subtotal) {
+  const targetNetCents = Math.round(Number(subtotal) * 100);
+  if (!targetNetCents || targetNetCents < 50) {
+    return {
+      processingFee: 0,
+      processingFeeCents: 0,
+      cardChargeTotal: Number(subtotal) || 0,
+      cardChargeTotalCents: targetNetCents
+    };
+  }
+
+  let cardChargeTotalCents = targetNetCents;
+  while (cardChargeTotalCents < targetNetCents + 10000) {
+    const stripeFeeCents = Math.round(cardChargeTotalCents * STRIPE_CARD_FEE_RATE) + STRIPE_CARD_FIXED_FEE_CENTS;
+    if (cardChargeTotalCents - stripeFeeCents >= targetNetCents) {
+      break;
+    }
+    cardChargeTotalCents += 1;
+  }
+
+  const processingFeeCents = cardChargeTotalCents - targetNetCents;
+  return {
+    processingFee: processingFeeCents / 100,
+    processingFeeCents,
+    cardChargeTotal: cardChargeTotalCents / 100,
+    cardChargeTotalCents
+  };
 }
 
 function ensureHeaderRow(sheet) {

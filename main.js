@@ -1,4 +1,6 @@
 const COSTS = { kid: 35 };
+const STRIPE_CARD_FEE_RATE = 0.029;
+const STRIPE_CARD_FIXED_FEE_CENTS = 30;
 const TRANSLATIONS = {
   en: {
     countdownHeading: "New Year starts in",
@@ -44,6 +46,8 @@ const TRANSLATIONS = {
     cardPaymentEyebrow: "Secure card payment",
     cardPaymentTitle: "Pay by card",
     cardPaymentDueLabel: "Amount due",
+    cardProcessingFeeNote:
+      "Includes a ${fee} Stripe processing fee so the camp receives ${subtotal}.",
     cardNumberLabel: "Card number",
     expirationLabel: "Expiration date",
     securityCodeLabel: "Security code",
@@ -114,6 +118,8 @@ const TRANSLATIONS = {
     cardPaymentEyebrow: "Pago con tarjeta seguro",
     cardPaymentTitle: "Pagar con tarjeta",
     cardPaymentDueLabel: "Monto a pagar",
+    cardProcessingFeeNote:
+      "Incluye una comisión de procesamiento de Stripe de ${fee} para que el campamento reciba ${subtotal}.",
     cardNumberLabel: "Número de tarjeta",
     expirationLabel: "Fecha de expiración",
     securityCodeLabel: "Código de seguridad",
@@ -184,6 +190,8 @@ const TRANSLATIONS = {
     cardPaymentEyebrow: "Безопасная оплата картой",
     cardPaymentTitle: "Оплатить картой",
     cardPaymentDueLabel: "Сумма к оплате",
+    cardProcessingFeeNote:
+      "Включает комиссию Stripe ${fee}, чтобы лагерь получил ${subtotal}.",
     cardNumberLabel: "Номер карты",
     expirationLabel: "Срок действия",
     securityCodeLabel: "Код безопасности",
@@ -254,6 +262,8 @@ const TRANSLATIONS = {
     cardPaymentEyebrow: "Безпечна оплата карткою",
     cardPaymentTitle: "Оплатити карткою",
     cardPaymentDueLabel: "Сума до оплати",
+    cardProcessingFeeNote:
+      "Включає комісію Stripe ${fee}, щоб табір отримав ${subtotal}.",
     cardNumberLabel: "Номер картки",
     expirationLabel: "Термін дії",
     securityCodeLabel: "Код безпеки",
@@ -329,6 +339,7 @@ const statusEl = document.getElementById("status");
 const finalSuccess = document.getElementById("finalSuccess");
 const embeddedPayment = document.getElementById("embeddedPayment");
 const embeddedPaymentAmount = document.getElementById("embeddedPaymentAmount");
+const cardFeeBreakdown = document.getElementById("cardFeeBreakdown");
 const primaryFirstNameEl = document.getElementById("primaryFirstName");
 const primaryLastNameEl = document.getElementById("primaryLastName");
 const phoneInput = document.getElementById("phone");
@@ -366,6 +377,41 @@ const mainScriptTag = document.querySelector('script[src*="main.js"]');
 const scriptURL = mainScriptTag?.getAttribute("data-script-url") ||
   "https://script.google.com/macros/s/AKfycbz6o-4Zo8QymsJ217SoD2dC9UtlssJqGQiO_SizNKk9BMySxH_kEByJ4uKlohzqpwLYow/exec";
 const stripePublishableKey = mainScriptTag?.getAttribute("data-stripe-publishable-key") || "";
+
+const formatCurrency = (amount) => `$${Number(amount).toFixed(2)}`;
+
+const calculateCardCharge = (subtotal) => {
+  const targetNetCents = Math.round(Number(subtotal) * 100);
+  if (!targetNetCents || targetNetCents < 50) {
+    return {
+      subtotal,
+      subtotalCents: targetNetCents,
+      processingFee: 0,
+      processingFeeCents: 0,
+      cardChargeTotal: subtotal,
+      cardChargeTotalCents: targetNetCents,
+    };
+  }
+
+  let cardChargeTotalCents = targetNetCents;
+  while (cardChargeTotalCents < targetNetCents + 10000) {
+    const stripeFeeCents = Math.round(cardChargeTotalCents * STRIPE_CARD_FEE_RATE) + STRIPE_CARD_FIXED_FEE_CENTS;
+    if (cardChargeTotalCents - stripeFeeCents >= targetNetCents) {
+      break;
+    }
+    cardChargeTotalCents += 1;
+  }
+
+  const processingFeeCents = cardChargeTotalCents - targetNetCents;
+  return {
+    subtotal,
+    subtotalCents: targetNetCents,
+    processingFee: processingFeeCents / 100,
+    processingFeeCents,
+    cardChargeTotal: cardChargeTotalCents / 100,
+    cardChargeTotalCents,
+  };
+};
 
 const showPaymentReturnState = () => {
   const params = new URLSearchParams(window.location.search);
@@ -479,7 +525,7 @@ const showFinalSuccess = (sessionId) => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
-const mountEmbeddedCheckout = async ({ clientSecret, sessionId, totalCost }) => {
+const mountEmbeddedCheckout = async ({ clientSecret, sessionId, paymentSummary }) => {
   if (!stripePublishableKey) {
     throw new Error("Stripe publishable key is missing.");
   }
@@ -496,7 +542,15 @@ const mountEmbeddedCheckout = async ({ clientSecret, sessionId, totalCost }) => 
   }
 
   if (embeddedPaymentAmount) {
-    embeddedPaymentAmount.textContent = `${getString("cardPaymentDueLabel") || "Amount due"}: $${totalCost}`;
+    embeddedPaymentAmount.textContent = `${getString("cardPaymentDueLabel") || "Amount due"}: ${formatCurrency(paymentSummary.cardChargeTotal)}`;
+  }
+
+  if (cardFeeBreakdown) {
+    const template = getString("cardProcessingFeeNote") ||
+      "Includes a ${fee} Stripe processing fee so the camp receives ${subtotal}.";
+    cardFeeBreakdown.textContent = template
+      .replace("${fee}", formatCurrency(paymentSummary.processingFee))
+      .replace("${subtotal}", formatCurrency(paymentSummary.subtotal));
   }
 
   form.style.display = "none";
@@ -565,6 +619,7 @@ form.addEventListener("submit", async (event) => {
   }
 
   const subtotal = Number(kidInput.value || 0) * COSTS.kid;
+  const paymentSummary = calculateCardCharge(subtotal);
   const kidNames = Array.from(kidList.querySelectorAll("input")).map((input) =>
     input.value.trim()
   );
@@ -575,8 +630,11 @@ form.addEventListener("submit", async (event) => {
     phone: phoneInput.value.trim(),
     kids: Number(kidInput.value) || 0,
     kidNames,
-    totalCost: String(subtotal),
+    totalCost: paymentSummary.cardChargeTotal.toFixed(2),
     sheetCost: String(subtotal),
+    cardChargeTotal: paymentSummary.cardChargeTotal.toFixed(2),
+    processingFee: paymentSummary.processingFee.toFixed(2),
+    stripeFeeRate: "2.9% + $0.30",
     timestamp: new Date().toISOString(),
   };
 
@@ -593,7 +651,7 @@ form.addEventListener("submit", async (event) => {
     await mountEmbeddedCheckout({
       clientSecret: session.clientSecret,
       sessionId: session.sessionId,
-      totalCost: subtotal,
+      paymentSummary,
     });
   } catch (err) {
     console.error(err);

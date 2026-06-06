@@ -485,6 +485,13 @@ button:disabled {
   font-weight: 800;
 }
 
+.payment-fee-note {
+  margin: 0.35rem 0 0;
+  color: #52616f;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
 #embedded-checkout {
   min-height: 560px;
 }
