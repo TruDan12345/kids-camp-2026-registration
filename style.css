@@ -448,6 +448,58 @@ button:disabled {
   border-radius: 14px;
 }
 
+.embedded-payment {
+  margin: 0;
+  padding: 1rem 0.86rem 1.05rem;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(215, 226, 232, 0.94);
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(21, 46, 68, 0.11);
+  animation: fadeIn 0.25s ease-out;
+}
+
+.payment-summary {
+  padding: 0.25rem 0.08rem 0.9rem;
+}
+
+.payment-eyebrow {
+  margin: 0 0 0.2rem;
+  color: var(--teal);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.payment-summary h2 {
+  margin: 0;
+  color: var(--blue);
+  font-size: 1.3rem;
+  line-height: 1.15;
+}
+
+.payment-total {
+  margin: 0.44rem 0 0;
+  color: var(--blue-dark);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+#embedded-checkout {
+  min-height: 560px;
+}
+
+.cash-note {
+  margin: 0.85rem 0 0;
+  padding: 0.85rem;
+  color: #153d2c;
+  background: #eefaf2;
+  border: 1px solid #c8ebd3;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
 .spinner {
   width: 34px;
   height: 34px;

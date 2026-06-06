@@ -77,10 +77,14 @@ function handleCheckoutRequest(e) {
     ]);
 
     if (callback) {
-      return javascriptResponse(callback, { status: 'ok', url: session.url, sessionId: session.id });
+      return javascriptResponse(callback, {
+        status: 'ok',
+        clientSecret: session.client_secret,
+        sessionId: session.id
+      });
     }
 
-    return redirectHtml(session.url, 'Opening secure Stripe checkout...');
+    return jsonResponse({ status: 'ok', clientSecret: session.client_secret, sessionId: session.id });
   } catch (err) {
     try {
       if (!ss) ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -240,13 +244,11 @@ function createStripeCheckoutSession(data, row, rowNumber) {
 
   const family = row[1];
   const description = `${row[5]} kid${Number(row[5]) === 1 ? '' : 's'}: ${row[6]}`;
-  const successUrl = `${PUBLISHED_SITE_URL}?payment=success&session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = `${PUBLISHED_SITE_URL}?payment=cancelled`;
 
   const payload = {
     mode: 'payment',
-    success_url: successUrl,
-    cancel_url: cancelUrl,
+    ui_mode: 'embedded',
+    redirect_on_completion: 'never',
     client_reference_id: String(rowNumber),
     'line_items[0][quantity]': '1',
     'line_items[0][price_data][currency]': 'usd',
@@ -276,7 +278,7 @@ function createStripeCheckoutSession(data, row, rowNumber) {
   if (status < 200 || status >= 300) {
     throw new Error(`Stripe Checkout failed: ${session.error && session.error.message ? session.error.message : body}`);
   }
-  if (!session.url) throw new Error('Stripe did not return a Checkout URL.');
+  if (!session.client_secret) throw new Error('Stripe did not return an embedded Checkout client secret.');
 
   return session;
 }

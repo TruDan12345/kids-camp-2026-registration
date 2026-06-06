@@ -327,9 +327,12 @@ const kidList = document.getElementById("kidList");
 const kidTable = document.getElementById("kidTable");
 const statusEl = document.getElementById("status");
 const finalSuccess = document.getElementById("finalSuccess");
+const embeddedPayment = document.getElementById("embeddedPayment");
+const embeddedPaymentAmount = document.getElementById("embeddedPaymentAmount");
 const primaryFirstNameEl = document.getElementById("primaryFirstName");
 const primaryLastNameEl = document.getElementById("primaryLastName");
 const phoneInput = document.getElementById("phone");
+let embeddedCheckout = null;
 
 const requiredFields = [
   { input: primaryFirstNameEl, key: "primaryFirstNameRequired" },
@@ -362,6 +365,7 @@ requiredFields.forEach(({ input }) => {
 const mainScriptTag = document.querySelector('script[src*="main.js"]');
 const scriptURL = mainScriptTag?.getAttribute("data-script-url") ||
   "https://script.google.com/macros/s/AKfycbz6o-4Zo8QymsJ217SoD2dC9UtlssJqGQiO_SizNKk9BMySxH_kEByJ4uKlohzqpwLYow/exec";
+const stripePublishableKey = mainScriptTag?.getAttribute("data-stripe-publishable-key") || "";
 
 const showPaymentReturnState = () => {
   const params = new URLSearchParams(window.location.search);
@@ -401,7 +405,7 @@ const showPaymentReturnState = () => {
   }
 };
 
-const submitToCheckout = (payload) =>
+const requestCheckoutSession = (payload) =>
   new Promise((resolve, reject) => {
     const callbackName = `kidsCampCheckout${Date.now()}${Math.floor(Math.random() * 100000)}`;
     const checkoutScript = document.createElement("script");
@@ -418,12 +422,11 @@ const submitToCheckout = (payload) =>
 
     window[callbackName] = (response) => {
       cleanup();
-      if (!response || response.status !== "ok" || !response.url) {
+      if (!response || response.status !== "ok" || !response.clientSecret || !response.sessionId) {
         reject(new Error(response?.message || "Stripe checkout could not be created."));
         return;
       }
-      resolve(response.url);
-      window.location.assign(response.url);
+      resolve(response);
     };
 
     checkoutScript.onerror = () => {
@@ -439,6 +442,74 @@ const submitToCheckout = (payload) =>
     checkoutScript.src = `${scriptURL}?${params.toString()}`;
     document.body.appendChild(checkoutScript);
   });
+
+const waitForStripe = () =>
+  new Promise((resolve, reject) => {
+    if (window.Stripe) {
+      resolve(window.Stripe);
+      return;
+    }
+
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      if (window.Stripe) {
+        window.clearInterval(timer);
+        resolve(window.Stripe);
+        return;
+      }
+
+      if (Date.now() - startedAt > 12000) {
+        window.clearInterval(timer);
+        reject(new Error(getString("paymentLoadError") || "Failed to load payment form."));
+      }
+    }, 100);
+  });
+
+const showFinalSuccess = (sessionId) => {
+  verifyPaymentInBackground(sessionId);
+  if (embeddedCheckout) {
+    embeddedCheckout.destroy();
+    embeddedCheckout = null;
+  }
+  form.style.display = "none";
+  if (embeddedPayment) embeddedPayment.style.display = "none";
+  if (finalSuccess) finalSuccess.style.display = "block";
+  const successFooter = document.getElementById("successFooter");
+  if (successFooter) successFooter.style.display = "block";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+const mountEmbeddedCheckout = async ({ clientSecret, sessionId, totalCost }) => {
+  if (!stripePublishableKey) {
+    throw new Error("Stripe publishable key is missing.");
+  }
+
+  const StripeConstructor = await waitForStripe();
+  const stripe = StripeConstructor(stripePublishableKey);
+  if (!stripe || typeof stripe.initEmbeddedCheckout !== "function") {
+    throw new Error(getString("paymentLoadError") || "Failed to load payment form.");
+  }
+
+  if (embeddedCheckout) {
+    embeddedCheckout.destroy();
+    embeddedCheckout = null;
+  }
+
+  if (embeddedPaymentAmount) {
+    embeddedPaymentAmount.textContent = `${getString("cardPaymentDueLabel") || "Amount due"}: $${totalCost}`;
+  }
+
+  form.style.display = "none";
+  if (embeddedPayment) embeddedPayment.style.display = "block";
+
+  embeddedCheckout = await stripe.initEmbeddedCheckout({
+    fetchClientSecret: async () => clientSecret,
+    onComplete: () => showFinalSuccess(sessionId),
+  });
+
+  embeddedCheckout.mount("#embedded-checkout");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
 
 const verifyPaymentInBackground = (sessionId) => {
   if (!sessionId) return;
@@ -518,9 +589,16 @@ form.addEventListener("submit", async (event) => {
   statusEl.style.display = "block";
 
   try {
-    await submitToCheckout(payload);
+    const session = await requestCheckoutSession(payload);
+    await mountEmbeddedCheckout({
+      clientSecret: session.clientSecret,
+      sessionId: session.sessionId,
+      totalCost: subtotal,
+    });
   } catch (err) {
     console.error(err);
+    form.style.display = "block";
+    if (embeddedPayment) embeddedPayment.style.display = "none";
     statusEl.textContent = `Error: ${err.message || getString("genericError") || "Unknown error"}. ${getString("tryAgainMessage") || "Please try again."}`;
     statusEl.className = "status-message error";
     statusEl.style.display = "block";
