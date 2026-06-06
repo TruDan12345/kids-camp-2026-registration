@@ -47,7 +47,7 @@ const TRANSLATIONS = {
     cardPaymentTitle: "Pay by card",
     cardPaymentDueLabel: "Amount due",
     cardProcessingFeeNote:
-      "Includes a ${fee} Stripe processing fee so the camp receives ${subtotal}.",
+      "Includes a ${fee} Stripe processing fee.",
     cardNumberLabel: "Card number",
     expirationLabel: "Expiration date",
     securityCodeLabel: "Security code",
@@ -119,7 +119,7 @@ const TRANSLATIONS = {
     cardPaymentTitle: "Pagar con tarjeta",
     cardPaymentDueLabel: "Monto a pagar",
     cardProcessingFeeNote:
-      "Incluye una comisión de procesamiento de Stripe de ${fee} para que el campamento reciba ${subtotal}.",
+      "Incluye una comisión de procesamiento de Stripe de ${fee}.",
     cardNumberLabel: "Número de tarjeta",
     expirationLabel: "Fecha de expiración",
     securityCodeLabel: "Código de seguridad",
@@ -191,7 +191,7 @@ const TRANSLATIONS = {
     cardPaymentTitle: "Оплатить картой",
     cardPaymentDueLabel: "Сумма к оплате",
     cardProcessingFeeNote:
-      "Включает комиссию Stripe ${fee}, чтобы лагерь получил ${subtotal}.",
+      "Включает комиссию Stripe ${fee}.",
     cardNumberLabel: "Номер карты",
     expirationLabel: "Срок действия",
     securityCodeLabel: "Код безопасности",
@@ -263,7 +263,7 @@ const TRANSLATIONS = {
     cardPaymentTitle: "Оплатити карткою",
     cardPaymentDueLabel: "Сума до оплати",
     cardProcessingFeeNote:
-      "Включає комісію Stripe ${fee}, щоб табір отримав ${subtotal}.",
+      "Включає комісію Stripe ${fee}.",
     cardNumberLabel: "Номер картки",
     expirationLabel: "Термін дії",
     securityCodeLabel: "Код безпеки",
@@ -547,7 +547,7 @@ const mountEmbeddedCheckout = async ({ clientSecret, sessionId, paymentSummary }
 
   if (cardFeeBreakdown) {
     const template = getString("cardProcessingFeeNote") ||
-      "Includes a ${fee} Stripe processing fee so the camp receives ${subtotal}.";
+      "Includes a ${fee} Stripe processing fee.";
     cardFeeBreakdown.textContent = template
       .replace("${fee}", formatCurrency(paymentSummary.processingFee))
       .replace("${subtotal}", formatCurrency(paymentSummary.subtotal));
