@@ -237,7 +237,7 @@ function buildRegistrationRow(data) {
 
 function createStripeCheckoutSession(data, row, rowNumber) {
   const secretKey = PropertiesService.getScriptProperties().getProperty(STRIPE_SECRET_PROP);
-  if (!secretKey) throw new Error('Stripe sandbox secret key is not configured in Apps Script properties.');
+  if (!secretKey) throw new Error('Stripe secret key is not configured in Apps Script properties.');
 
   const amount = Math.round(Number(row[7]) * 100);
   if (!amount || amount < 50) throw new Error('Payment amount is invalid.');
@@ -285,7 +285,7 @@ function createStripeCheckoutSession(data, row, rowNumber) {
 
 function retrieveStripeCheckoutSession(sessionId) {
   const secretKey = PropertiesService.getScriptProperties().getProperty(STRIPE_SECRET_PROP);
-  if (!secretKey) throw new Error('Stripe sandbox secret key is not configured in Apps Script properties.');
+  if (!secretKey) throw new Error('Stripe secret key is not configured in Apps Script properties.');
 
   const response = UrlFetchApp.fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, {
     method: 'get',
